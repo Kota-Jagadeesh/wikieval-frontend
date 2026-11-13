@@ -12,10 +12,15 @@ import client from './client'
 // submitted it, the response also carries `existing_submission` ({ id, status,
 // score, already_reviewed, reviewed_by_username, reviewed_at, submitted_at })
 // so the UI can offer to keep it or refresh its stats.
+// This step chains several upstream calls (MediaWiki, XTools, revision
+// history), so it gets a longer timeout than the client's 15s default.
+const EVALUATE_TIMEOUT_MS = 120000
+
 export async function evaluateSubmission(contestId, articleLink) {
   const { data } = await client.post(
     `/api/contests/${contestId}/submissions/evaluate`,
     { article_link: articleLink },
+    { timeout: EVALUATE_TIMEOUT_MS },
   )
   return data
 }

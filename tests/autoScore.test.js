@@ -82,7 +82,10 @@ test('reference_count sums new + reused', () => {
   assert.equal(metricValue(META, 'reference_count'), 5)
   assert.equal(metricValue({ ref_new_count: 7 }, 'reference_count'), 7) // reused missing -> 0
   assert.equal(metricValue({ ref_reused_count: 4 }, 'reference_count'), 4)
-  assert.equal(metricValue({}, 'reference_count'), 0) // both missing -> 0, not null
+  // Both missing means XTools was unavailable -> null, so the parameter is
+  // left for manual scoring rather than auto-failing on 0.
+  assert.equal(metricValue({}, 'reference_count'), null)
+  assert.equal(metricValue({ ref_new_count: null, ref_reused_count: null }, 'reference_count'), null)
 })
 
 test('metricValue returns null for a missing metric', () => {

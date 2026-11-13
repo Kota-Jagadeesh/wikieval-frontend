@@ -15,8 +15,10 @@ export const AUTO_METRICS = [
   {
     key: 'reference_count',
     label: 'Reference count',
+    // Both null means XTools was unavailable at evaluation time — return null
+    // so the parameter is left for manual scoring instead of auto-failing on 0.
     get: (m) =>
-      m == null
+      m == null || (m.ref_new_count == null && m.ref_reused_count == null)
         ? null
         : (m.ref_new_count ?? 0) + (m.ref_reused_count ?? 0),
   },
