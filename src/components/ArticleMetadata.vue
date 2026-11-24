@@ -5,6 +5,7 @@ import {
   mdiCheckCircle,
   mdiCloseCircle,
   mdiInformationOutline,
+  mdiAlertOutline,
 } from '@mdi/js'
 
 const props = defineProps({
@@ -31,8 +32,22 @@ const dateUTC = (v) =>
         timeZone: 'UTC',
       })
     : '—'
-const totalRefs = computed(
-  () => (m.value.ref_new_count || 0) + (m.value.ref_reused_count || 0),
+// References and links come from XTools, which the backend treats as optional:
+// when it is down or times out these fields are stored as null (not 0). Surface
+// that honestly instead of rendering a misleading zero.
+const refsUnavailable = computed(
+  () => m.value.ref_new_count == null && m.value.ref_reused_count == null,
+)
+const linksUnavailable = computed(
+  () => m.value.outgoing_links == null && m.value.incoming_links == null,
+)
+const statsUnavailable = computed(
+  () => refsUnavailable.value || linksUnavailable.value,
+)
+const totalRefs = computed(() =>
+  refsUnavailable.value
+    ? null
+    : (m.value.ref_new_count || 0) + (m.value.ref_reused_count || 0),
 )
 
 // Permanent link to the exact evaluated revision on the source wiki.
@@ -72,8 +87,11 @@ const rows = computed(() => [
     : []),
   {
     label: 'References',
-    value: `${num(totalRefs.value)} (${num(m.value.ref_new_count)} new, ${num(m.value.ref_reused_count)} reused)`,
-    req: req(r.value.min_reference_count, totalRefs.value),
+    value: refsUnavailable.value
+      ? 'Unavailable'
+      : `${num(totalRefs.value)} (${num(m.value.ref_new_count)} new, ${num(m.value.ref_reused_count)} reused)`,
+    req: refsUnavailable.value ? null : req(r.value.min_reference_count, totalRefs.value),
+    unavailable: refsUnavailable.value,
   },
   {
     label: 'Images',
@@ -84,7 +102,10 @@ const rows = computed(() => [
   { label: 'Created', value: dateUTC(m.value.created_at) },
   {
     label: 'Links',
-    value: `${num(m.value.outgoing_links)} out · ${num(m.value.incoming_links)} in`,
+    value: linksUnavailable.value
+      ? 'Unavailable'
+      : `${num(m.value.outgoing_links)} out · ${num(m.value.incoming_links)} in`,
+    unavailable: linksUnavailable.value,
   },
 ])
 </script>
@@ -106,6 +127,19 @@ const rows = computed(() => [
       </span>
       <v-icon v-if="m.article_url" :icon="mdiOpenInNew" size="x-small" />
     </div>
+
+    <v-alert
+      v-if="statsUnavailable"
+      type="warning"
+      variant="tonal"
+      density="compact"
+      class="mb-3"
+      :icon="mdiAlertOutline"
+    >
+      Reference and link counts could not be fetched because the XTools
+      service did not respond. They are recorded as unavailable, not zero.
+      Re-evaluating the article later will fill them in.
+    </v-alert>
 
     <v-table density="comfortable">
       <tbody>
@@ -140,7 +174,15 @@ const rows = computed(() => [
               </v-tooltip>
             </span>
           </td>
-          <td :class="row.highlight ? 'font-weight-bold text-primary' : 'font-weight-medium'">
+          <td
+            :class="
+              row.unavailable
+                ? 'text-warning font-weight-medium'
+                : row.highlight
+                  ? 'font-weight-bold text-primary'
+                  : 'font-weight-medium'
+            "
+          >
             <span class="d-inline-flex align-center ga-2">
               {{ row.value }}
               <v-chip
